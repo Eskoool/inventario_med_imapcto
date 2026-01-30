@@ -9,6 +9,7 @@ const App = (() => {
     medicamentos: [],
     filteredMedicamentos: [],
     searchTerm: '',
+    filterPersona: '',   // Filtro por farmaceutico
     editingMaterial: null,  // null = modo crear, string = modo editar
     isLoading: false,
     autoRefreshInterval: null,
@@ -39,6 +40,7 @@ const App = (() => {
 
       // Toolbar
       searchInput: document.getElementById('search-input'),
+      filterPersona: document.getElementById('filter-persona'),
       btnNew: document.getElementById('btn-new'),
       btnRefresh: document.getElementById('btn-refresh'),
 
@@ -89,6 +91,7 @@ const App = (() => {
   function bindEvents() {
     // Toolbar
     dom.searchInput.addEventListener('input', handleSearch);
+    dom.filterPersona.addEventListener('change', handleFilterPersona);
     dom.btnNew.addEventListener('click', openCreateModal);
     dom.btnRefresh.addEventListener('click', () => loadData(false));
 
@@ -133,6 +136,7 @@ const App = (() => {
       } else {
         state.medicamentos = data;
       }
+      updatePersonaDropdown();
       applyFilter();
       updateStats();
       if (!silent) toast('Datos cargados correctamente', 'success');
@@ -192,21 +196,51 @@ const App = (() => {
     applyFilter();
   }
 
+  function handleFilterPersona() {
+    state.filterPersona = dom.filterPersona.value;
+    applyFilter();
+  }
+
   function applyFilter() {
-    if (!state.searchTerm) {
-      state.filteredMedicamentos = [...state.medicamentos];
-    } else {
-      state.filteredMedicamentos = state.medicamentos.filter((m) => {
+    let result = [...state.medicamentos];
+
+    // Filtro por farmaceutico (dropdown)
+    if (state.filterPersona) {
+      result = result.filter(
+        (m) => (m.persona_asignada || '') === state.filterPersona
+      );
+    }
+
+    // Filtro por texto libre (buscador)
+    if (state.searchTerm) {
+      result = result.filter((m) => {
         return (
           (m.material || '').toLowerCase().includes(state.searchTerm) ||
-          (m.texto_largo_material || '').toLowerCase().includes(state.searchTerm) ||
-          (m.persona_asignada || '').toLowerCase().includes(state.searchTerm)
+          (m.texto_largo_material || '').toLowerCase().includes(state.searchTerm)
         );
       });
     }
+
+    state.filteredMedicamentos = result;
     renderTable();
     renderCards();
     toggleEmptyState();
+  }
+
+  function updatePersonaDropdown() {
+    const personas = new Set();
+    state.medicamentos.forEach((m) => {
+      if (m.persona_asignada) personas.add(m.persona_asignada);
+    });
+
+    const sorted = [...personas].sort();
+    const current = dom.filterPersona.value;
+
+    dom.filterPersona.innerHTML =
+      '<option value="">Todos los farmaceuticos</option>' +
+      sorted
+        .map((p) => `<option value="${esc(p)}"${p === current ? ' selected' : ''}>${esc(p)}</option>`)
+        .join('');
   }
 
   // =============================================

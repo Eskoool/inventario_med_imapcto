@@ -10,17 +10,15 @@ const API = (() => {
   // CONFIGURACION
   // =============================================
   const CONFIG = {
-    // --- MODO 1: Google Apps Script (recomendado para empezar) ---
-    // Pega aqui la URL de tu Apps Script desplegado
+    // --- Google Apps Script (lectura directa del Sheet) ---
+    // Despliega google-apps-script/Code.gs y pega la URL aqui
     APPS_SCRIPT_URL: '',
 
-    // --- MODO 2: n8n webhooks ---
+    // --- n8n webhooks (escritura: crear, actualizar, eliminar) ---
     N8N_BASE_URL: 'https://n8n.srv872841.hstgr.cloud/webhook',
     N8N_ENDPOINT: '/inventario',
 
     // --- General ---
-    // 'apps-script' o 'n8n'
-    MODE: 'n8n',
     TIMEOUT: 15000,
   };
 
@@ -128,39 +126,42 @@ const API = (() => {
   // OPERACIONES CRUD (agnósticas al transporte)
   // =============================================
 
+  // LECTURA: usa Apps Script (directo del Sheet, sin n8n)
+  // ESCRITURA: usa n8n webhooks (crear, actualizar, eliminar)
+
   async function getAll() {
-    if (CONFIG.MODE === 'apps-script') {
+    if (CONFIG.APPS_SCRIPT_URL) {
       return await appsScriptRequest('getAll');
     }
     return await n8nRequest('GET');
   }
 
   async function getByMaterial(material) {
-    if (CONFIG.MODE === 'apps-script') {
+    if (CONFIG.APPS_SCRIPT_URL) {
       return await appsScriptRequest('getOne', { material });
     }
     return await n8nRequest('GET', `/${encodeURIComponent(material)}`);
   }
 
   async function create(data) {
-    if (CONFIG.MODE === 'apps-script') {
-      return await appsScriptRequest('create', { data });
+    if (CONFIG.N8N_BASE_URL) {
+      return await n8nRequest('POST', '', data);
     }
-    return await n8nRequest('POST', '', data);
+    return await appsScriptRequest('create', { data });
   }
 
   async function update(material, data) {
-    if (CONFIG.MODE === 'apps-script') {
-      return await appsScriptRequest('update', { material, data });
+    if (CONFIG.N8N_BASE_URL) {
+      return await n8nRequest('PUT', `/${encodeURIComponent(material)}`, data);
     }
-    return await n8nRequest('PUT', `/${encodeURIComponent(material)}`, data);
+    return await appsScriptRequest('update', { material, data });
   }
 
   async function remove(material) {
-    if (CONFIG.MODE === 'apps-script') {
-      return await appsScriptRequest('delete', { material });
+    if (CONFIG.N8N_BASE_URL) {
+      return await n8nRequest('DELETE', `/${encodeURIComponent(material)}`);
     }
-    return await n8nRequest('DELETE', `/${encodeURIComponent(material)}`);
+    return await appsScriptRequest('delete', { material });
   }
 
   // =============================================
@@ -169,12 +170,10 @@ const API = (() => {
 
   function setAppsScriptUrl(url) {
     CONFIG.APPS_SCRIPT_URL = url;
-    CONFIG.MODE = 'apps-script';
   }
 
   function setN8nUrl(baseUrl) {
     CONFIG.N8N_BASE_URL = baseUrl.replace(/\/$/, '');
-    CONFIG.MODE = 'n8n';
   }
 
   async function testConnection() {
