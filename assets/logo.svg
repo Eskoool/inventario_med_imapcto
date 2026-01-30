@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <defs>
+    <style>
+      .text-purple { fill: #6B2D8B; font-family: 'Georgia', 'Times New Roman', serif; }
+      .text-hunsc { fill: #6B2D8B; font-family: 'Arial', sans-serif; font-weight: bold; letter-spacing: 2px; }
+      .mountain { fill: none; stroke: #B8860B; stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <!-- Letra F grande morada -->
+  <text class="text-purple" x="30" y="280" font-size="200" font-weight="bold" font-style="italic"
+        style="paint-order: stroke; stroke: #6B2D8B; stroke-width: 2;">F</text>
+
+  <!-- Montaña dorada/ocre -->
+  <path class="mountain" d="M 75,230 L 150,130 L 230,220 L 280,180 L 310,230" />
+
+  <!-- Texto HUNSC debajo de la montaña -->
+  <text class="text-hunsc" x="110" y="270" font-size="28">HUNSC</text>
+
+  <!-- Texto "rmacia" en morado -->
+  <text class="text-purple" x="260" y="320" font-size="110" font-style="italic">rmacia</text>
+</svg>
