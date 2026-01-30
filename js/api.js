@@ -14,13 +14,13 @@ const API = (() => {
     // Pega aqui la URL de tu Apps Script desplegado
     APPS_SCRIPT_URL: '',
 
-    // --- MODO 2: n8n webhooks (para flujos avanzados) ---
-    N8N_BASE_URL: '',
+    // --- MODO 2: n8n webhooks ---
+    N8N_BASE_URL: 'https://n8n.srv872841.hstgr.cloud/webhook',
     N8N_ENDPOINT: '/inventario',
 
     // --- General ---
     // 'apps-script' o 'n8n'
-    MODE: 'apps-script',
+    MODE: 'n8n',
     TIMEOUT: 15000,
   };
 
