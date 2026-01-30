@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#4A1D61">
+  <meta name="description" content="Inventario de Medicamentos - Farmacia HUNSC">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Farmacia HUNSC - Inventario</title>
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="apple-touch-icon" href="assets/logo.png">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- ======== HEADER ======== -->
+  <header class="app-header">
+    <div class="header-content">
+      <img src="assets/logo.png" alt="Farmacia HUNSC" class="header-logo">
+      <div>
+        <div class="header-title">Farmacia HUNSC</div>
+        <div class="header-subtitle">Control de Inventario de Medicamentos</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======== MAIN ======== -->
+  <main class="app-main">
+
+    <!-- Stats -->
+    <section class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-total">0</div>
+        <div class="stat-label">Total Medicamentos</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-sin-descuadre" style="color:var(--color-success)">0</div>
+        <div class="stat-label">Sin Descuadre</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-con-descuadre" style="color:var(--color-danger)">0</div>
+        <div class="stat-label">Con Descuadre</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-pendientes" style="color:var(--color-warning)">0</div>
+        <div class="stat-label">Pendientes Conteo</div>
+      </div>
+    </section>
+
+    <!-- Toolbar -->
+    <section class="toolbar">
+      <div class="toolbar-search">
+        <span class="search-icon">&#128269;</span>
+        <input type="text" id="search-input" placeholder="Buscar por codigo, nombre o responsable...">
+      </div>
+      <div class="toolbar-actions">
+        <button class="btn btn-primary" id="btn-new">&#10010; Nuevo</button>
+        <button class="btn btn-outline" id="btn-refresh" title="Actualizar datos">&#8635; Actualizar</button>
+      </div>
+    </section>
+
+    <!-- Data Table (desktop) -->
+    <div class="card" id="table-container">
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Nombre</th>
+              <th>Responsable</th>
+              <th>Stock Maestro</th>
+              <th>Stock Real</th>
+              <th>Stock Cta Poliv.</th>
+              <th>Desc. Dragofarma</th>
+              <th>Observaciones</th>
+              <th>Seflogico</th>
+              <th>Desc. Seflogic</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Card List (mobile) -->
+    <div class="card-list" id="card-list"></div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="empty-state" style="display:none">
+      <div class="empty-state-icon">&#128138;</div>
+      <div class="empty-state-text">No hay medicamentos</div>
+      <div class="empty-state-hint">Pulsa "Nuevo" para agregar el primer registro o verifica la conexion con n8n.</div>
+    </div>
+
+  </main>
+
+  <!-- ======== MODAL: Crear/Editar ======== -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-title">Nuevo Medicamento</h2>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="med-form" autocomplete="off">
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="f-material">
+                Codigo Material <span class="required">*</span>
+              </label>
+              <input class="form-input" type="text" id="f-material" placeholder="Ej: MED001" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="f-persona">Persona Asignada</label>
+              <input class="form-input" type="text" id="f-persona" placeholder="Farmaceutico responsable">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-texto-largo">Nombre del Medicamento</label>
+            <input class="form-input" type="text" id="f-texto-largo" placeholder="Texto largo / nombre completo">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="f-stock-maestro">Stock Maestro</label>
+              <input class="form-input" type="number" step="any" id="f-stock-maestro" placeholder="0">
+              <div class="form-hint">Cantidad que indica el software</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="f-stock-real">Stock Real</label>
+              <input class="form-input" type="number" step="any" id="f-stock-real" placeholder="0">
+              <div class="form-hint">Cantidad contada por farmaceutico</div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="f-stock-cta">Stock Cta Polivalente</label>
+              <input class="form-input" type="number" step="any" id="f-stock-cta" placeholder="0">
+              <div class="form-hint">Almacen externo</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="f-descuadre-drago">Descuadre Dragofarma</label>
+              <input class="form-input" type="number" step="any" id="f-descuadre-drago" value="0" readonly>
+              <div class="form-hint">= Stock Real - Stock Maestro</div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="f-seflogico">Seflogico</label>
+              <input class="form-input" type="number" step="any" id="f-seflogico" placeholder="0">
+              <div class="form-hint">Programa de gestion de compras</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="f-descuadre-sef">Descuadre Seflogic</label>
+              <input class="form-input" type="number" step="any" id="f-descuadre-sef" value="0" readonly>
+              <div class="form-hint">= Desc. Dragofarma - Seflogico</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-observaciones">Observaciones</label>
+            <textarea class="form-input" id="f-observaciones" rows="2" placeholder="Notas del farmaceutico..."></textarea>
+          </div>
+
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="btn-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="btn-save">&#10003; Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== CONFIRM DIALOG ======== -->
+  <div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-box">
+      <p id="confirm-text">¿Esta seguro?</p>
+      <div class="confirm-actions">
+        <button class="btn btn-outline" id="confirm-no">Cancelar</button>
+        <button class="btn btn-danger" id="confirm-yes">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== LOADING ======== -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="spinner"></div>
+    <span>Cargando datos...</span>
+  </div>
+
+  <!-- ======== TOAST ======== -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
