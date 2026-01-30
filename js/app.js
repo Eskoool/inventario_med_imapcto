@@ -11,6 +11,8 @@ const App = (() => {
     searchTerm: '',
     editingMaterial: null,  // null = modo crear, string = modo editar
     isLoading: false,
+    autoRefreshInterval: null,
+    AUTO_REFRESH_MS: 30000, // Refresco cada 30 segundos
   };
 
   // Referencias DOM (se inicializan en init)
@@ -24,6 +26,7 @@ const App = (() => {
     cacheDom();
     bindEvents();
     loadData();
+    startAutoRefresh();
   }
 
   function cacheDom() {
@@ -87,7 +90,7 @@ const App = (() => {
     // Toolbar
     dom.searchInput.addEventListener('input', handleSearch);
     dom.btnNew.addEventListener('click', openCreateModal);
-    dom.btnRefresh.addEventListener('click', loadData);
+    dom.btnRefresh.addEventListener('click', () => loadData(false));
 
     // Modal
     dom.modalClose.addEventListener('click', closeModal);
@@ -121,25 +124,62 @@ const App = (() => {
   // CARGA DE DATOS
   // =============================================
 
-  async function loadData() {
-    showLoading(true);
+  async function loadData(silent = false) {
+    if (!silent) showLoading(true);
     try {
-      state.medicamentos = await API.getAll();
-      if (!Array.isArray(state.medicamentos)) {
+      const data = await API.getAll();
+      if (!Array.isArray(data)) {
         state.medicamentos = [];
+      } else {
+        state.medicamentos = data;
       }
       applyFilter();
       updateStats();
-      toast('Datos cargados correctamente', 'success');
+      if (!silent) toast('Datos cargados correctamente', 'success');
     } catch (error) {
       console.error('Error cargando datos:', error);
-      toast('Error al cargar datos: ' + error.message, 'error');
-      // Usar datos de demo si falla la conexion
-      state.medicamentos = getDemoData();
-      applyFilter();
-      updateStats();
+      if (!silent) {
+        toast('Error al cargar datos: ' + error.message, 'error');
+        // Usar datos de demo solo en la primera carga si falla
+        if (state.medicamentos.length === 0) {
+          state.medicamentos = getDemoData();
+          applyFilter();
+          updateStats();
+        }
+      }
     } finally {
-      showLoading(false);
+      if (!silent) showLoading(false);
+    }
+  }
+
+  // =============================================
+  // AUTO-REFRESH (datos en tiempo real)
+  // =============================================
+
+  function startAutoRefresh() {
+    stopAutoRefresh();
+    state.autoRefreshInterval = setInterval(() => {
+      // No refrescar si hay modal abierto o esta cargando
+      if (!dom.modalOverlay.classList.contains('active') && !state.isLoading) {
+        loadData(true); // silent = true, sin spinner ni toast
+      }
+    }, state.AUTO_REFRESH_MS);
+
+    // Tambien refrescar cuando la ventana vuelve a tener foco
+    document.addEventListener('visibilitychange', handleVisibility);
+  }
+
+  function stopAutoRefresh() {
+    if (state.autoRefreshInterval) {
+      clearInterval(state.autoRefreshInterval);
+      state.autoRefreshInterval = null;
+    }
+    document.removeEventListener('visibilitychange', handleVisibility);
+  }
+
+  function handleVisibility() {
+    if (!document.hidden && !state.isLoading) {
+      loadData(true);
     }
   }
 
