@@ -1,38 +1,100 @@
 /**
- * Farmacia HUNSC - Capa de integración con n8n
- * Gestiona todas las operaciones CRUD contra Google Sheets via n8n webhooks
+ * Farmacia HUNSC - Capa de integracion con Google Sheets
+ * Soporta dos modos de conexion:
+ *   1. Google Apps Script (directo, sin servidor adicional)
+ *   2. n8n webhooks (para flujos avanzados)
  */
 
 const API = (() => {
   // =============================================
-  // CONFIGURACION - Cambiar estas URLs por las reales de n8n
+  // CONFIGURACION
   // =============================================
   const CONFIG = {
-    // URL base del webhook de n8n (sin barra final)
-    BASE_URL: 'https://TU_INSTANCIA_N8N.com/webhook',
-    // Endpoint del inventario
-    ENDPOINT: '/inventario',
-    // Timeout en ms
+    // --- MODO 1: Google Apps Script (recomendado para empezar) ---
+    // Pega aqui la URL de tu Apps Script desplegado
+    APPS_SCRIPT_URL: '',
+
+    // --- MODO 2: n8n webhooks (para flujos avanzados) ---
+    N8N_BASE_URL: '',
+    N8N_ENDPOINT: '/inventario',
+
+    // --- General ---
+    // 'apps-script' o 'n8n'
+    MODE: 'apps-script',
     TIMEOUT: 15000,
   };
 
-  /**
-   * Obtiene la URL completa del endpoint
-   */
-  function getUrl(path = '') {
-    return `${CONFIG.BASE_URL}${CONFIG.ENDPOINT}${path}`;
+  // =============================================
+  // TRANSPORTE: Google Apps Script
+  // =============================================
+
+  async function appsScriptRequest(action, params = {}) {
+    if (!CONFIG.APPS_SCRIPT_URL) {
+      throw new Error('URL de Apps Script no configurada. Edita js/api.js');
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CONFIG.TIMEOUT);
+
+    try {
+      let response;
+
+      if (action === 'getAll' || action === 'getOne') {
+        // GET requests
+        const url = new URL(CONFIG.APPS_SCRIPT_URL);
+        url.searchParams.set('action', action);
+        if (params.material) {
+          url.searchParams.set('material', params.material);
+        }
+        response = await fetch(url.toString(), {
+          method: 'GET',
+          signal: controller.signal,
+        });
+      } else {
+        // POST requests (create, update, delete)
+        response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            action: action,
+            material: params.material || null,
+            data: params.data || null,
+          }),
+        });
+      }
+
+      clearTimeout(timeoutId);
+
+      const result = await response.json();
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('La peticion ha superado el tiempo de espera');
+      }
+      throw error;
+    }
   }
 
-  /**
-   * Realiza una peticion HTTP con manejo de errores y timeout
-   */
-  async function request(method, path = '', body = null) {
-    const url = getUrl(path);
+  // =============================================
+  // TRANSPORTE: n8n webhooks
+  // =============================================
+
+  async function n8nRequest(method, path = '', body = null) {
+    if (!CONFIG.N8N_BASE_URL) {
+      throw new Error('URL de n8n no configurada. Edita js/api.js');
+    }
+
+    const url = `${CONFIG.N8N_BASE_URL}${CONFIG.N8N_ENDPOINT}${path}`;
     const options = {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
     };
 
     if (body) {
@@ -52,11 +114,9 @@ const API = (() => {
         throw new Error(`Error ${response.status}: ${errorText}`);
       }
 
-      const data = await response.json();
-      return { success: true, data };
+      return await response.json();
     } catch (error) {
       clearTimeout(timeoutId);
-
       if (error.name === 'AbortError') {
         throw new Error('La peticion ha superado el tiempo de espera');
       }
@@ -65,80 +125,58 @@ const API = (() => {
   }
 
   // =============================================
-  // OPERACIONES CRUD
+  // OPERACIONES CRUD (agnósticas al transporte)
   // =============================================
 
-  /**
-   * Obtener todos los registros del inventario
-   * GET /webhook/inventario
-   * @returns {Array} Lista de medicamentos
-   */
   async function getAll() {
-    const result = await request('GET');
-    return result.data;
+    if (CONFIG.MODE === 'apps-script') {
+      return await appsScriptRequest('getAll');
+    }
+    return await n8nRequest('GET');
   }
 
-  /**
-   * Obtener un medicamento por su codigo de material
-   * GET /webhook/inventario/:material
-   * @param {string} material - Codigo del medicamento
-   * @returns {Object} Datos del medicamento
-   */
   async function getByMaterial(material) {
-    const result = await request('GET', `/${encodeURIComponent(material)}`);
-    return result.data;
+    if (CONFIG.MODE === 'apps-script') {
+      return await appsScriptRequest('getOne', { material });
+    }
+    return await n8nRequest('GET', `/${encodeURIComponent(material)}`);
   }
 
-  /**
-   * Crear un nuevo registro de medicamento
-   * POST /webhook/inventario
-   * @param {Object} data - Datos del medicamento
-   * @returns {Object} Registro creado
-   */
   async function create(data) {
-    const result = await request('POST', '', data);
-    return result.data;
+    if (CONFIG.MODE === 'apps-script') {
+      return await appsScriptRequest('create', { data });
+    }
+    return await n8nRequest('POST', '', data);
   }
 
-  /**
-   * Actualizar un registro existente
-   * PUT /webhook/inventario/:material
-   * @param {string} material - Codigo del medicamento
-   * @param {Object} data - Datos actualizados
-   * @returns {Object} Registro actualizado
-   */
   async function update(material, data) {
-    const result = await request('PUT', `/${encodeURIComponent(material)}`, data);
-    return result.data;
+    if (CONFIG.MODE === 'apps-script') {
+      return await appsScriptRequest('update', { material, data });
+    }
+    return await n8nRequest('PUT', `/${encodeURIComponent(material)}`, data);
   }
 
-  /**
-   * Eliminar un registro
-   * DELETE /webhook/inventario/:material
-   * @param {string} material - Codigo del medicamento
-   * @returns {Object} Confirmacion de eliminacion
-   */
   async function remove(material) {
-    const result = await request('DELETE', `/${encodeURIComponent(material)}`);
-    return result.data;
+    if (CONFIG.MODE === 'apps-script') {
+      return await appsScriptRequest('delete', { material });
+    }
+    return await n8nRequest('DELETE', `/${encodeURIComponent(material)}`);
   }
 
   // =============================================
   // CONFIGURACION EN RUNTIME
   // =============================================
 
-  /**
-   * Actualiza la URL base de n8n (para configuracion dinamica)
-   * @param {string} baseUrl - Nueva URL base
-   */
-  function setBaseUrl(baseUrl) {
-    CONFIG.BASE_URL = baseUrl.replace(/\/$/, '');
+  function setAppsScriptUrl(url) {
+    CONFIG.APPS_SCRIPT_URL = url;
+    CONFIG.MODE = 'apps-script';
   }
 
-  /**
-   * Verifica la conexion con n8n
-   * @returns {boolean} true si la conexion es exitosa
-   */
+  function setN8nUrl(baseUrl) {
+    CONFIG.N8N_BASE_URL = baseUrl.replace(/\/$/, '');
+    CONFIG.MODE = 'n8n';
+  }
+
   async function testConnection() {
     try {
       await getAll();
@@ -154,7 +192,8 @@ const API = (() => {
     create,
     update,
     remove,
-    setBaseUrl,
+    setAppsScriptUrl,
+    setN8nUrl,
     testConnection,
     CONFIG,
   };
